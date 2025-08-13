@@ -1,11 +1,12 @@
-// server.js
+// server.js (fixed)
 import express from "express";
 import bodyParser from "body-parser";
 import OpenAI from "openai";
-import { Client as LarkClient, Config, LEVEL } from "@larksuiteoapi/node-sdk";
+// Lark SDK là CommonJS -> import mặc định rồi destructure
+import larkpkg from "@larksuiteoapi/node-sdk";
+const { Client: LarkClient, Config, LEVEL } = larkpkg;
 
 const app = express();
-// Lark sends JSON; accept any content-type just in case
 app.use(bodyParser.json({ type: "*/*" }));
 
 const {
@@ -14,13 +15,13 @@ const {
   LARK_APP_ID,
   LARK_APP_SECRET,
   LARK_VERIFICATION_TOKEN,
-  LARK_ENCRYPT_KEY // optional; only if encryption strategy is enabled
+  LARK_ENCRYPT_KEY, // optional
 } = process.env;
 
-// --- OpenAI (Responses API) ---
+// OpenAI (Responses API)
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-// --- Lark SDK config ---
+// Lark SDK config
 const larkConf = new Config({
   appId: LARK_APP_ID,
   appSecret: LARK_APP_SECRET,
@@ -30,34 +31,31 @@ const larkConf = new Config({
 });
 const lark = new LarkClient(larkConf);
 
-// Verify Lark token util
+// Verify token from Lark
 function verifyLarkToken(req) {
   const token = req.body?.token || req.headers["x-lark-signature-token"];
   return token === LARK_VERIFICATION_TOKEN;
 }
 
-// Health check
-app.get("/", (_req, res) => res.send("Lark x GPT-5 bot running"));
+app.get("/", (_, res) => res.send("Lark x GPT-5 bot running"));
 
-// Webhook endpoint for Lark
 app.post("/lark/callback", async (req, res) => {
   try {
     const body = req.body || {};
 
-    // 1) URL verification handshake
+    // URL verification
     if (body?.type === "url_verification" && body?.challenge) {
       return res.status(200).send(body.challenge);
     }
 
-    // 2) Optional: decrypt if using encryption (not implemented; typically unnecessary)
-    //    If you enabled Encryption Strategy in Lark, implement decrypt here using LARK_ENCRYPT_KEY.
+    // (Nếu bật encryption thì cần giải mã ở đây — hiện đang tắt)
 
-    // 3) Verify token
+    // Verify token
     if (!verifyLarkToken(req)) {
       return res.status(401).send("invalid token");
     }
 
-    // 4) Handle direct messages to bot
+    // 1:1 messages
     if (body?.header?.event_type === "im.message.receive_v1") {
       const event = body.event;
       const chatId = event?.message?.chat_id;
@@ -71,18 +69,17 @@ app.post("/lark/callback", async (req, res) => {
         userText = "[non-text message]";
       }
 
-      // Call OpenAI
       const ai = await openai.responses.create({
         model: "gpt-5",
         input: `User: ${userText}\nAssistant:`,
       });
       const reply = (ai.output_text || "").trim() || "(no response)";
 
-      // Send back to Lark
       await lark.im.message.create({
+        // CHÚ Ý: receive_id_type nằm ở params, không phải data
+        params: { receive_id_type: "chat_id" },
         data: {
           receive_id: chatId,
-          receive_id_type: "chat_id",
           content: JSON.stringify({ text: reply }),
           msg_type: "text",
         },
@@ -91,7 +88,7 @@ app.post("/lark/callback", async (req, res) => {
       return res.status(200).send("ok");
     }
 
-    // 5) Handle group @-mentions
+    // Group @-mentions
     if (body?.header?.event_type === "im.message.group_at_msg_v1") {
       const event = body.event;
       const chatId = event?.message?.chat_id;
@@ -105,9 +102,9 @@ app.post("/lark/callback", async (req, res) => {
       const reply = (ai.output_text || "").trim() || "(no response)";
 
       await lark.im.message.create({
+        params: { receive_id_type: "chat_id" },
         data: {
           receive_id: chatId,
-          receive_id_type: "chat_id",
           content: JSON.stringify({ text: reply }),
           msg_type: "text",
         },
@@ -119,9 +116,9 @@ app.post("/lark/callback", async (req, res) => {
     return res.status(200).send("ignored");
   } catch (err) {
     console.error(err);
-    // Always 200 so Lark doesn't retry aggressively
     return res.status(200).send("ok");
   }
 });
 
 app.listen(PORT, () => console.log(`Server on :${PORT}`));
+
