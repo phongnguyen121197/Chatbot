@@ -10,10 +10,10 @@ app.use(bodyParser.json({ type: "*/*" }));
 
 const {
   PORT = 3000,
-  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,
-  cli_a816ab3b94b8d010,
-  7V0HzQJ8dDw1XwXl7yvw38O7Q4yhfcFT,
-  jxqgS86EHkrnXaj30722AcPyLXwjZNqR, // optional in this minimal sample
+  OPENAI_API_KEY,
+  LARK_APP_ID,
+  LARK_APP_SECRET,
+  LARK_VERIFICATION_TOKEN, // optional in this minimal sample
 } = process.env;
 
 // OpenAI (Responses API)
@@ -33,7 +33,7 @@ const lark = new LarkClient(larkConf);
 function verifyToken(req) {
   if (!LARK_VERIFICATION_TOKEN) return true; // skip if not set
   const token = req.body?.token || req.headers["x-lark-signature-token"];
-  return token === jxqgS86EHkrnXaj30722AcPyLXwjZNqR;
+  return token === LARK_VERIFICATION_TOKEN;
 }
 
 app.get("/", (_, res) => res.send("Lark x GPT-5 bot running (CJS)"));
