@@ -1,16 +1,17 @@
 {
   "name": "lark-gpt5-bot",
   "version": "1.0.0",
-  "type": "module",
+  "type": "commonjs",
   "description": "LarkSuite bot webhook that forwards messages to OpenAI GPT-5 via Responses API.",
-  "main": "server.js",
+  "main": "server.cjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.cjs"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.18.0",
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
-    "openai": "^4.52.0"
+    "openai": "^4.52.0",
+    "dotenv": "^16.4.5"
   }
 }
